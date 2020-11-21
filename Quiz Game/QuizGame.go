@@ -1,58 +1,67 @@
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
+	"flag"
 	"fmt"
-	"io"
-	"log"
 	"os"
-	"strings"
 )
 
 func main() {
 
-	// Einlesen des CSV Datei
-	fn := "problems.csv"
+	// CSV Dateiname als Flag realisieren
+	csvFileName := flag.String("csv", "problems.csv", "a csv file in the format 'question,answer'")
+	flag.Parse()
 
-	file, err := os.Open(fn)
+	// Öffnen der Datei
+	file, err := os.Open(*csvFileName)
 	if err != nil {
-		log.Fatal(err)
+		exit(fmt.Sprintf("Fehler beim Öffnen der Datei: %s", *csvFileName))
 	}
-	defer file.Close()
 
-	// Start reading from the file with a reader.
-	gesamtPunkte := 0
-	reader := bufio.NewReader(file)
-	fmt.Println(reader)
-	var line string
-	for i := 0; i < 10; i++ {
-		line, err = reader.ReadString('\n')
-		if err != nil && err != io.EOF {
-			break
-		}
+	// Parsen der csv-Datei
+	r := csv.NewReader(file)
+	lines, err := r.ReadAll()
+	if err != nil {
+		exit("Fehler beim Parsen der Datei.")
+	}
 
-		// Wandeln CSV => String-Array
-		r := csv.NewReader(strings.NewReader(line))
-		records, err := r.ReadAll()
-		if err != nil {
-			log.Fatal(err)
-		}
+	problems := parseLines(lines)
 
-		// Lesen von StdIn
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Printf("Frage: %s = ", records[0][0])
-		antwort, _ := reader.ReadString('\n')
-
-		// Prüfen, ob die Antwort richtig ist
-		if strings.TrimSpace(antwort) == strings.TrimSpace(records[0][1]) {
-			fmt.Printf("Die Anwort ist richtig:  %s \n", records[0][1])
-			gesamtPunkte++
+	correct := 0
+	for i, p := range problems {
+		fmt.Printf("Problem #%d %s = \n", i+1, p.question)
+		var answer string
+		fmt.Scanf("%s\n", &answer)
+		if answer == p.answer {
+			fmt.Printf("Korrekt\n")
+			correct++
 		} else {
-			fmt.Printf("Die Anwort ist falsch. Richtig ist:  %s \n", records[0][1])
+			fmt.Printf("Falsch: %s\n", answer)
 		}
 	}
 
-	fmt.Printf("Herzlichen Glückwunsch! Sie haben insgesamt % Punkte erreicht \n", gesamtPunkte)
+	fmt.Printf("Du hast %d Fragen von %d richtig beantwortet", correct, len(problems))
 
+}
+
+func parseLines(lines [][]string) []problem {
+	ret := make([]problem, len(lines))
+	for i, line := range lines {
+		ret[i] = problem{
+			question: line[0],
+			answer:   line[1],
+		}
+	}
+	return ret
+}
+
+type problem struct {
+	question string
+	answer   string
+}
+
+func exit(msg string) {
+	fmt.Println(msg)
+	os.Exit(1)
 }
